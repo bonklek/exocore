@@ -170,12 +170,10 @@ plugins:
 - jekyll-relative-links
 # - jekyll-github-metadata
 - jekyll-seo-tag
-- html-proofer
-- rubocop
-- w3c_validators
+# html-proofer, rubocop and w3c_validators are dev/CI tools, not Jekyll
+# plugins; they stay in the Gemfile but must not be required by Jekyll.
 - jekyll-last-modified-at
 - jekyll-redirect-from
 - jekyll-feed
 - jekyll-wikilinks
-- jekyll-last-modified-at
 - jekyll-graph
