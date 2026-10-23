@@ -39,7 +39,6 @@ const links = [];
 const Graph = ForceGraph3D()
 
     (document.getElementById('3d-graph'))
-      .jsonUrl('/assets/graph-net-web.json')
       .height(850)
       .width(1700)
       .cameraPosition({ z: distance })
@@ -90,6 +89,34 @@ const Graph = ForceGraph3D()
       Graph.d3Force('charge').strength(-20);
 
       
+//===============================================================//
+// LOAD GRAPH DATA
+// (fetched explicitly instead of .jsonUrl() so a missing or broken
+// graph-net-web.json shows a message rather than an uncaught error)
+//===============================================================//
+fetch('/assets/graph-net-web.json')
+  .then(res => {
+    if (!res.ok) {
+      throw new Error(`HTTP ${res.status} loading graph data`);
+    }
+    return res.json();
+  })
+  .then(data => {
+    if (!data || !Array.isArray(data.nodes) || !Array.isArray(data.links)) {
+      throw new Error('graph data has no nodes/links');
+    }
+    Graph.graphData(data);
+  })
+  .catch(err => {
+    console.error('3d-graph:', err);
+    const container = document.getElementById('3d-graph');
+    if (container) {
+      const msg = document.createElement('p');
+      msg.textContent = 'The graph could not be loaded.';
+      container.appendChild(msg);
+    }
+  });
+
 //===============================================================//
 // ZOOM ON NODE CLICK
 //===============================================================//

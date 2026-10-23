@@ -33,6 +33,7 @@ require "jekyll"
 require 'open3'
 require 'cgi'
 require 'base64'
+require 'shellwords'
 
 $LOAD_PATH.unshift(File.dirname(__FILE__))
 
@@ -45,8 +46,40 @@ module Jekyll
       @title = nil if @title && @title.empty?
     end
 
-    def gen_svg(input)
-      output, status = Open3.capture2e("dot -Tsvg", stdin_data: input, binmode: true)
+    DEFAULT_COMMAND = "dot"
+    DEFAULT_OPTIONS = ["-Tsvg"].freeze
+
+    # Reads `graphviz.command` / `graphviz.options` from _config.yml.
+    # The command is a single executable name or path; options may be a
+    # string (split shell-style, never passed through a shell) or a list.
+    def graphviz_argv(context)
+      site = context.registers[:site]
+      conf = site && site.config["graphviz"]
+      conf = {} unless conf.is_a?(Hash)
+
+      command = conf["command"].to_s.strip
+      command = DEFAULT_COMMAND if command.empty?
+
+      options =
+        case conf["options"]
+        when Array then conf["options"].map(&:to_s)
+        when nil then DEFAULT_OPTIONS
+        else Shellwords.split(conf["options"].to_s)
+        end
+      options = DEFAULT_OPTIONS if options.empty?
+
+      [command, *options]
+    rescue ArgumentError => e
+      # unbalanced quotes in `graphviz.options`
+      Jekyll.logger.warn "graphviz:", "invalid graphviz.options (#{e.message}); using #{DEFAULT_OPTIONS.join(' ')}"
+      [command || DEFAULT_COMMAND, *DEFAULT_OPTIONS]
+    end
+
+    def gen_svg(input, argv)
+      # [cmd, argv0] form plus separate arguments: Ruby never invokes a shell,
+      # even if the configured command contains spaces or metacharacters
+      command, *args = argv
+      output, status = Open3.capture2e([command, command], *args, stdin_data: input, binmode: true)
       output.force_encoding 'UTF-8'
       if status.success?
         [output, nil]
@@ -54,13 +87,13 @@ module Jekyll
         [nil, output]
       end
     rescue SystemCallError => e
-      # `dot` is not installed or not executable; show the error instead of aborting the build
-      [nil, "graphviz: could not run `dot`: #{e.message}"]
+      # the command is not installed or not executable; show the error instead of aborting the build
+      [nil, "graphviz: could not run `#{argv.first}`: #{e.message}"]
     end
 
     def render(context)
       text = super
-      output, error = gen_svg(text.strip)
+      output, error = gen_svg(text.strip, graphviz_argv(context))
       if error
         "<pre><code>" + CGI.escapeHTML(error) + "</code></pre>"
       else
