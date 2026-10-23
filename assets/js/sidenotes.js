@@ -48,8 +48,11 @@
         // console.log(" ---> postWidth " + $(".post").outerWidth());
         // console.log(" ---> snStart " + startPosition + startPosition/3);
 
-        // has room to show side content
-        if(startPosition + startPosition / 3 > $(".post").outerWidth()) {
+        // has room to show side content (fall back to the window when
+        // the layout has no .post wrapper)
+        const $post = $(".post"),
+              availableWidth = $post.length ? $post.outerWidth() : $(window).width();
+        if(startPosition + startPosition / 3 > availableWidth) {
             $footnotes.show();  // previous resize could have hidden footnotes
             return;
         }
@@ -57,7 +60,8 @@
 
         const $fnItems = $footnotes.find("ol li");
 
-        $("sup").each(function(index) {
+        // only footnote references, so other <sup> elements don't shift the indices
+        $postContent.find('sup[id^="fnref"]').each(function(index) {
             const $footnoteText = $fnItems.eq(index).text().trim();
             createSideNote($(this), $footnoteText, startPosition);
         });
@@ -83,10 +87,13 @@
             width: startPosition/3,
         });
 
+        // drop handlers bound by a previous resize, which point at removed divs
+        superscript.off(".sidenote");
+
         if (startPosition > 420) {
-            superscript.hover(function() {
+            superscript.on("mouseenter.sidenote", function() {
                 div.addClass("sidenote-hover");
-            }, function () {
+            }).on("mouseleave.sidenote", function () {
                 div.removeClass("sidenote-hover");
             });
         } else {
