@@ -42,6 +42,7 @@ module Jekyll
       super
       @caption = !!(tag_name =~ /captioned/)
       @title = text && text.strip
+      @title = nil if @title && @title.empty?
     end
 
     def gen_svg(input)
@@ -52,6 +53,9 @@ module Jekyll
       else
         [nil, output]
       end
+    rescue SystemCallError => e
+      # `dot` is not installed or not executable; show the error instead of aborting the build
+      [nil, "graphviz: could not run `dot`: #{e.message}"]
     end
 
     def render(context)
